@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Korus - Explore, Create, Learn</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .gradient-text {
+            background: linear-gradient(90deg, #38bdf8, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        .tab-btn {
+            transition: all 0.3s ease;
+        }
+        .tab-active {
+            border-color: #38bdf8;
+            color: #e0f2fe;
+            background-color: #1e293b;
+        }
+        .tab-inactive {
+            border-color: transparent;
+            color: #9ca3af;
+        }
+        .loader {
+            border: 4px solid #374151;
+            border-top: 4px solid #38bdf8;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        .small-loader {
+             border: 2px solid #374151;
+             border-top: 2px solid #38bdf8;
+             width: 20px;
+             height: 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .prose-custom h3 { font-size: 1.25rem; font-weight: 700; color: white; margin-bottom: 0.5rem; }
+        .prose-custom p { margin-bottom: 1rem; }
+        .prose-custom ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 1rem; }
+        .prose-custom li { margin-bottom: 0.5rem; }
+        .prose-custom strong { color: #f0f9ff; }
+        #image-gallery {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+            gap: 1rem;
+        }
+        #image-gallery img {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 0.5rem;
+            border: 2px solid #334155;
+            transition: transform 0.3s ease, border-color 0.3s ease;
+            cursor: pointer;
+        }
+        #image-gallery img:hover {
+            transform: scale(1.05);
+            border-color: #38bdf8;
+        }
+        #d-canvas-container, #map-content {
+            width: 100%;
+            height: 400px;
+            border-radius: 0.5rem;
+        }
+        #map-content iframe {
+            width: 100%;
+            height: 100%;
+            border: 0;
+            border-radius: 0.5rem;
+        }
+        #auth-visual {
+            background-image: url('https://placehold.co/1000x1200/0f172a/38bdf8?text=Korus');
+            background-size: cover;
+            background-position: center;
+        }
+        .gemini-btn, .fav-btn, .tts-btn {
+            color: white;
+            font-weight: 600;
+            padding: 8px 16px;
+            border-radius: 8px;
+            transition: background-color 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .gemini-btn { background-color: #2563eb; }
+        .gemini-btn:hover { background-color: #1d4ed8; }
+        .fav-btn { background-color: #ca8a04; }
+        .fav-btn:hover { background-color: #a16207; }
+        .tts-btn { background-color: #16a34a; }
+        .tts-btn:hover { background-color: #15803d; }
+        
+        .list-item {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .list-item:hover {
+            background-color: #334155;
+        }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-300">
+
+    <!-- Authentication Container -->
+    <div id="auth-container" class="min-h-screen flex items-center justify-center bg-slate-900">
+       <div class="w-full h-screen flex">
+            <div id="auth-visual" class="hidden lg:block lg:w-1/2"></div>
+            <div class="w-full lg:w-1/2 flex items-center justify-center p-8">
+                 <div class="max-w-md w-full">
+                    <div class="text-center mb-8">
+                        <h1 class="text-4xl font-bold text-white">Welcome to <span class="gradient-text">Korus</span></h1>
+                        <p class="text-slate-400 mt-2" data-translate="auth.subtitle">Sign in to begin your journey.</p>
+                    </div>
+                    <form id="email-password-form" class="space-y-4">
+                        <input id="email" type="email" placeholder="Email" class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-4 py-3 focus:ring-2 focus:ring-sky-500 focus:outline-none" required>
+                        <input id="password" type="password" placeholder="Password" class="w-full bg-slate-800 border border-slate-700 text-white rounded-lg px-4 py-3 focus:ring-2 focus:ring-sky-500 focus:outline-none" required>
+                        <div class="flex flex-col sm:flex-row gap-2">
+                            <button id="signin-btn" type="button" class="w-full bg-sky-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-sky-700 transition-colors" data-translate="auth.signin">Sign In</button>
+                            <button id="signup-btn" type="button" class="w-full bg-slate-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-slate-700 transition-colors" data-translate="auth.signup">Sign Up</button>
+                        </div>
+                    </form>
+                    <div class="my-6 flex items-center"><div class="flex-grow bg-slate-700 h-px"></div><span class="mx-4 text-slate-500 font-semibold text-sm">OR</span><div class="flex-grow bg-slate-700 h-px"></div></div>
+                    <button id="google-signin-btn" class="w-full flex items-center justify-center gap-3 bg-white text-slate-800 font-semibold py-3 px-4 rounded-lg hover:bg-slate-200 transition-colors">
+                        <svg class="w-6 h-6" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611,20.083H42V20H24v8h11.303c-1.649,4.657-6.08,8-11.303,8c-6.627,0-12-5.373-12-12c0-6.627,5.373-12,12-12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C12.955,4,4,12.955,4,24s8.955,20,20,20s20-8.955,20-20C44,22.659,43.862,21.35,43.611,20.083z"></path><path fill="#FF3D00" d="M6.306,14.691l6.571,4.819C14.655,15.108,18.961,12,24,12c3.059,0,5.842,1.154,7.961,3.039l5.657-5.657C34.046,6.053,29.268,4,24,4C16.318,4,9.656,8.337,6.306,14.691z"></path><path fill="#4CAF50" d="M24,44c5.166,0,9.86-1.977,13.409-5.192l-6.19-5.238C29.211,35.091,26.715,36,24,36c-5.202,0-9.619-3.317-11.283-7.946l-6.522,5.025C9.505,39.556,16.227,44,24,44z"></path><path fill="#1976D2" d="M43.611,20.083H42V20H24v8h11.303c-0.792,2.237-2.231,4.166-4.087,5.574l6.19,5.238C42.021,35.591,44,30.134,44,24C44,22.659,43.862,21.35,43.611,20.083z"></path></svg>
+                        <span data-translate="auth.google">Sign in with Google</span>
+                    </button>
+                    <p id="auth-error" class="text-red-400 text-center mt-4 h-4"></p>
+                </div>
+            </div>
+       </div>
+    </div>
+
+    <!-- Main Application Container -->
+    <div id="app-container" class="hidden">
+        <header class="text-center py-8 md:py-12 border-b border-slate-800 relative">
+             <div class="absolute top-4 right-4 flex items-center gap-4">
+                <select id="language-selector" class="bg-slate-700 text-white rounded-md px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-sky-500">
+                    <option value="en">English</option>
+                    <option value="es">Español</option>
+                    <option value="fr">Français</option>
+                    <option value="de">Deutsch</option>
+                    <option value="hi">हिन्दी</option>
+                    <option value="ja">日本語</option>
+                    <option value="ko">한국어</option>
+                </select>
+                <span id="user-email" class="text-slate-400 text-sm"></span>
+                <button id="logout-btn" class="bg-red-600 text-white font-semibold px-4 py-2 rounded-lg hover:bg-red-700 transition-colors" data-translate="header.logout">Logout</button>
+            </div>
+            <div class="max-w-4xl mx-auto px-4">
+                <h1 class="text-4xl md:text-5xl font-bold text-white"><span class="gradient-text">Korus</span></h1>
+            </div>
+        </header>
+
+        <section id="interactive-demo" class="py-12 md:py-16">
+            <div class="max-w-4xl mx-auto px-4">
+                <h2 class="text-3xl font-bold text-center text-white mb-4" data-translate="main.title">Ask the Universe</h2>
+                <p class="text-center text-slate-400 mb-8" data-translate="main.subtitle">Example: "The planet Mars" or "Eiffel Tower"</p>
+                <div class="flex flex-col sm:flex-row gap-2">
+                    <input id="userInput" type="text" class="flex-grow bg-slate-800 border border-slate-700 text-white rounded-lg px-4 py-3 focus:ring-2 focus:ring-sky-500 focus:outline-none" placeholder="Ask a question...">
+                    <button id="generateBtn" class="bg-gradient-to-r from-sky-500 to-violet-500 text-white font-semibold px-6 py-3 rounded-lg hover:opacity-90 transition-opacity duration-300" data-translate="main.generate">Generate</button>
+                </div>
+                
+                <div id="resultsContainer" class="mt-8 bg-slate-800 rounded-xl border border-slate-700 min-h-[20rem] p-6 hidden">
+                    <div class="flex flex-wrap border-b border-slate-700 mb-4">
+                        <button id="infoTab" class="tab-btn px-4 py-2 font-semibold border-b-2" data-translate="tabs.info">Information</button>
+                        <button id="creativeTab" class="tab-btn px-4 py-2 font-semibold border-b-2" data-translate="tabs.creative">Creative Spark</button>
+                        <button id="imagesTab" class="tab-btn px-4 py-2 font-semibold border-b-2" data-translate="tabs.images">Images</button>
+                        <button id="dViewTab" class="tab-btn px-4 py-2 font-semibold border-b-2" data-translate="tabs.3d">3D View</button>
+                        <button id="mapTab" class="tab-btn px-4 py-2 font-semibold border-b-2" data-translate="tabs.map">Map</button>
+                        <button id="toolsTab" class="tab-btn px-4 py-2 font-semibold border-b-2" data-translate="tabs.tools">Tools</button>
+                        <button id="historyTab" class="tab-btn px-4 py-2 font-semibold border-b-2" data-translate="tabs.history">History</button>
+                        <button id="profileTab" class="tab-btn px-4 py-2 font-semibold border-b-2" data-translate="tabs.profile">Profile</button>
+                    </div>
+                    <div id="action-bar" class="my-4 hidden">
+                        <button id="fav-btn" class="fav-btn">⭐ Save to Favorites</button>
+                    </div>
+                    <div id="infoContent" class="prose-custom hidden"></div>
+                    <div id="creativeContent" class="prose-custom hidden"></div>
+                    <div id="image-gallery" class="hidden"></div>
+                    <div id="d-canvas-container" class="hidden"></div>
+                    <div id="map-content" class="hidden"></div>
+                    <div id="tools-content" class="hidden">
+                        <h3 class="text-xl font-bold text-white mb-4" data-translate="tools.title">Export Content</h3>
+                        <p class="text-slate-400 mb-4" data-translate="tools.subtitle">Download the generated information and creative spark as a text file.</p>
+                        <button id="downloadBtn" class="bg-emerald-600 text-white font-semibold py-2 px-4 rounded-lg hover:bg-emerald-700 transition-colors" data-translate="tools.download">Download Results</button>
+                    </div>
+                    <div id="history-content" class="hidden"></div>
+                    <div id="profile-content" class="hidden"></div>
+                </div>
+                
+                <div id="loader" class="mt-12 mx-auto loader hidden"></div>
+                <div id="error-message" class="mt-8 text-center text-red-400 hidden"></div>
+            </div>
+        </section>
+
+        <footer class="bg-slate-900 border-t border-slate-800 py-8">
+            <div class="max-w-6xl mx-auto px-4 text-center text-slate-500">
+                <p>&copy; 2025 Korus. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
+    
+    <audio id="audio-player" class="hidden"></audio>
+
+    <script type="module">
+        // --- Firebase SDK Imports ---
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, onAuthStateChanged, GoogleAuthProvider, signInWithPopup, createUserWithEmailAndPassword, signInWithEmailAndPassword, signOut, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, collection, addDoc, query, onSnapshot, serverTimestamp, doc, orderBy } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // --- DOM References ---
+        const authContainer = document.getElementById('auth-container');
+        const appContainer = document.getElementById('app-container');
+        const authError = document.getElementById('auth-error');
+        const signinBtn = document.getElementById('signin-btn');
+        const signupBtn = document.getElementById('signup-btn');
+        const googleSigninBtn = document.getElementById('google-signin-btn');
+        const logoutBtn = document.getElementById('logout-btn');
+        const userEmailDisplay = document.getElementById('user-email');
+        const generateBtn = document.getElementById('generateBtn');
+        const userInput = document.getElementById('userInput');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const loader = document.getElementById('loader');
+        const errorMessage = document.getElementById('error-message');
+        const downloadBtn = document.getElementById('downloadBtn');
+        const languageSelector = document.getElementById('language-selector');
+        const actionBar = document.getElementById('action-bar');
+        const favBtn = document.getElementById('fav-btn');
+        const audioPlayer = document.getElementById('audio-player');
+        
+        const tabs = { info: document.getElementById('infoTab'), creative: document.getElementById('creativeTab'), images: document.getElementById('imagesTab'), '3d': document.getElementById('dViewTab'), map: document.getElementById('mapTab'), tools: document.getElementById('toolsTab'), history: document.getElementById('historyTab'), profile: document.getElementById('profileTab') };
+        const panes = { info: document.getElementById('infoContent'), creative: document.getElementById('creativeContent'), images: document.getElementById('image-gallery'), '3d': document.getElementById('d-canvas-container'), map: document.getElementById('map-content'), tools: document.getElementById('tools-content'), history: document.getElementById('history-content'), profile: document.getElementById('profile-content') };
+
+        // --- Firebase Init ---
+        const firebaseConfig = JSON.parse(typeof __firebase_config !== 'undefined' ? __firebase_config : '{}');
+        let app, auth, db;
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            db = getFirestore(app);
+        } catch (e) { console.error("Firebase initialization failed:", e); }
+        const googleProvider = new GoogleAuthProvider();
+        let historyUnsubscribe = null;
+        let favoritesUnsubscribe = null;
+        let searchCount = 0;
+
+        // --- Auth State & Listeners ---
+        onAuthStateChanged(auth, user => {
+            appContainer.classList.toggle('hidden', !user);
+            authContainer.classList.toggle('hidden', user);
+            if (user) {
+                userEmailDisplay.textContent = user.email;
+                listenToHistory(user.uid);
+                listenToFavorites(user.uid);
+            } else {
+                if (historyUnsubscribe) historyUnsubscribe();
+                if (favoritesUnsubscribe) favoritesUnsubscribe();
+            }
+        });
+        googleSigninBtn.addEventListener('click', () => signInWithPopup(auth, googleProvider).catch(err => authError.textContent = "Google Sign-In failed."));
+        signinBtn.addEventListener('click', () => {
+            const email = document.getElementById('email').value, pass = document.getElementById('password').value;
+            if(email && pass) signInWithEmailAndPassword(auth, email, pass).catch(err => authError.textContent = "Sign-in failed.");
+        });
+        signupBtn.addEventListener('click', () => {
+            const email = document.getElementById('email').value, pass = document.getElementById('password').value;
+            if(email && pass.length >= 6) createUserWithEmailAndPassword(auth, email, pass).catch(err => authError.textContent = "Sign-up failed.");
+        });
+        logoutBtn.addEventListener('click', () => signOut(auth));
+        downloadBtn.addEventListener('click', handleDownload);
+        languageSelector.addEventListener('change', () => translateUI(languageSelector.value));
+        favBtn.addEventListener('click', saveToFavorites);
+
+        // --- Main App Logic ---
+        let currentQuery = '';
+        let currentLang = 'en';
+        let threeJsApp = null;
+        let generatedContent = { info: '', creative: '' };
+
+        generateBtn.addEventListener('click', () => handleGeneration());
+        userInput.addEventListener('keyup', e => e.key === 'Enter' && handleGeneration());
+        Object.keys(tabs).forEach(key => tabs[key].addEventListener('click', () => switchTab(key)));
+
+        async function handleGeneration(queryOverride = null) {
+            const query = queryOverride || userInput.value.trim();
+            if (!query) return showError("Please ask a question first!");
+            
+            userInput.value = query;
+            currentQuery = query;
+            setLoadingState(true);
+            if (threeJsApp) {
+                threeJsApp.cleanup();
+                threeJsApp = null;
+            }
+
+            try {
+                const [info, creative] = await Promise.all([
+                    callGeminiAPI(`Using the information from openai.com, summarize the topic: "${query}"`, true),
+                    callGeminiAPI(`Based on "${query}", generate a creative idea.`)
+                ]);
+                generatedContent = { info, creative };
+                
+                const lang = languageSelector.value;
+                let displayInfo = info;
+                let displayCreative = creative;
+
+                if (lang !== 'en') {
+                     const [translatedInfo, translatedCreative] = await Promise.all([
+                        callGeminiAPI(`Translate to ${translations[lang]['languageName']}:\n\n${info}`),
+                        callGeminiAPI(`Translate to ${translations[lang]['languageName']}:\n\n${creative}`)
+                    ]);
+                    displayInfo = translatedInfo;
+                    displayCreative = translatedCreative;
+                }
+
+                populateTextContent(displayInfo, displayCreative);
+                showResults();
+                saveToHistory(query);
+            } catch (error) {
+                console.error("Error fetching AI responses:", error);
+                showError("Sorry, something went wrong. Please try again.");
+            } finally {
+                setLoadingState(false);
+            }
+        }
+        
+        function switchTab(activeTabKey) {
+            Object.keys(tabs).forEach(key => {
+                tabs[key].classList.toggle('tab-active', key === activeTabKey);
+                panes[key].classList.toggle('hidden', key !== activeTabKey);
+            });
+            
+            actionBar.classList.toggle('hidden', ['history', 'profile'].includes(activeTabKey));
+
+            if (activeTabKey === 'images' && panes.images.innerHTML === '') populateImageGallery(currentQuery);
+            if (activeTabKey === 'map' && panes.map.innerHTML === '') populateMap(currentQuery);
+            if (activeTabKey === '3d' && !threeJsApp) {
+                threeJsApp = new ThreeJsApp(panes['3d'], currentQuery);
+                threeJsApp.init();
+            }
+            if (activeTabKey === 'profile') renderProfile();
+        }
+
+        function populateTextContent(infoText, creativeText) {
+            const now = new Date();
+            const timestamp = now.toLocaleString(currentLang);
+
+            panes.info.innerHTML = `
+                <div id="info-detailed">${simpleMarkdownToHtml(infoText)}</div>
+                <div id="info-simple" class="hidden"></div>
+                <div class="mt-4 flex justify-between items-center flex-wrap gap-2">
+                    <div>
+                        <button id="eli5-btn" class="gemini-btn">✨ Explain Simply</button>
+                        <button id="tts-info-btn" class="tts-btn">🔊 Listen</button>
+                    </div>
+                    <p class="text-xs text-slate-500"><span data-translate="info.updated">Updated</span>: ${timestamp}</p>
+                </div>
+                <p class="text-xs text-slate-500 mt-2 text-right">Powered by Gemini 2.5 Flash & Google Search</p>
+            `;
+            document.getElementById('eli5-btn').addEventListener('click', handleEli5);
+            document.getElementById('tts-info-btn').addEventListener('click', () => handleTTS(infoText));
+
+            panes.creative.innerHTML = `
+                <div id="creative-idea">${simpleMarkdownToHtml(creativeText)}</div>
+                <div id="creative-story" class="mt-4 pt-4 border-t border-slate-700 hidden"></div>
+                <div class="mt-4 flex gap-2">
+                    <button id="story-weaver-btn" class="gemini-btn">✨ Weave a Story</button>
+                    <button id="tts-creative-btn" class="tts-btn">🔊 Listen</button>
+                </div>
+            `;
+            document.getElementById('story-weaver-btn').addEventListener('click', handleStoryWeaver);
+            document.getElementById('tts-creative-btn').addEventListener('click', () => handleTTS(creativeText));
+
+            panes.images.innerHTML = '';
+            panes.map.innerHTML = '';
+        }
+
+        async function handleEli5() {
+            const btn = document.getElementById('eli5-btn');
+            const simpleContainer = document.getElementById('info-simple');
+            btn.innerHTML = `<div class="loader small-loader"></div>`;
+            btn.disabled = true;
+
+            try {
+                const simplifiedText = await callGeminiAPI(`Explain the following text in simple terms, as if for a 5-year-old:\n\n${generatedContent.info}`);
+                simpleContainer.innerHTML = simpleMarkdownToHtml(simplifiedText);
+                document.getElementById('info-detailed').classList.add('hidden');
+                simpleContainer.classList.remove('hidden');
+                btn.textContent = 'Show Detailed View';
+                btn.onclick = () => {
+                    document.getElementById('info-detailed').classList.toggle('hidden');
+                    simpleContainer.classList.toggle('hidden');
+                    btn.textContent = simpleContainer.classList.contains('hidden') ? '✨ Explain Simply' : 'Show Detailed View';
+                    btn.onclick = handleEli5;
+                };
+            } catch (e) {
+                simpleContainer.innerHTML = `<p class="text-red-400">Could not simplify text.</p>`;
+                btn.textContent = '✨ Explain Simply';
+            } finally {
+                btn.disabled = false;
+            }
+        }
+
+        async function handleStoryWeaver() {
+            const btn = document.getElementById('story-weaver-btn');
+            const storyContainer = document.getElementById('creative-story');
+            btn.innerHTML = `<div class="loader small-loader"></div>`;
+            btn.disabled = true;
+            storyContainer.classList.remove('hidden');
+
+            try {
+                const storyText = await callGeminiAPI(`Based on this creative idea, write a compelling opening paragraph for a story:\n\n${generatedContent.creative}`);
+                storyContainer.innerHTML = `<h3 class="text-lg font-semibold text-white">Story Opening:</h3>${simpleMarkdownToHtml(storyText)}`;
+                btn.style.display = 'none';
+            } catch (e) {
+                storyContainer.innerHTML = `<p class="text-red-400">Could not generate a story.</p>`;
+                btn.textContent = '✨ Weave a Story';
+                btn.disabled = false;
+            }
+        }
+        
+        async function handleTTS(textToSpeak) {
+            const btn = event.target;
+            const originalText = btn.innerHTML;
+            btn.innerHTML = `<div class="loader small-loader"></div>`;
+            btn.disabled = true;
+
+            try {
+                const audioUrl = await callTextToSpeechAPI(textToSpeak);
+                audioPlayer.src = audioUrl;
+                audioPlayer.play();
+            } catch (error) {
+                console.error("TTS Error:", error);
+                showError("Sorry, could not generate audio.");
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        function populateImageGallery(query) {
+            panes.images.innerHTML = '';
+            const searchTerms = encodeURIComponent(query.split(' ').join(','));
+            for(let i=1; i<=8; i++){
+                const img = document.createElement('img');
+                img.src = `https://source.unsplash.com/400x400/?${searchTerms},people,transport,technology&sig=${Math.random()}`;
+                img.alt = `${query} image ${i}`;
+                img.onerror = () => { img.style.display = 'none'; };
+                panes.images.appendChild(img);
+            }
+        }
+        
+        function populateMap(query) {
+            panes.map.innerHTML = '';
+            const apiKey = "YOUR_API_KEY"; 
+            if (apiKey === "YOUR_API_KEY") {
+                panes.map.innerHTML = `<div class="text-center text-amber-400 p-4">Map functionality requires a Google Maps Embed API key.</div>`;
+                return;
+            }
+            const iframe = document.createElement('iframe');
+            iframe.src = `https://www.google.com/maps/embed/v1/place?key=${apiKey}&q=${encodeURIComponent(query)}`;
+            iframe.loading = 'lazy';
+            panes.map.appendChild(iframe);
+        }
+        
+        function handleDownload() {
+            const infoText = panes.info.innerText;
+            const creativeText = panes.creative.innerText;
+            const content = `Korus AI Results for: "${currentQuery}"\n\n========================\nINFORMATION\n========================\n\n${infoText}\n\n========================\nCREATIVE SPARK\n========================\n\n${creativeText}`;
+            const blob = new Blob([content], { type: 'text/plain' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Korus_Results_${currentQuery.replace(/\s+/g, '_')}.txt`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        const translations = {
+            en: { "languageName": "English", "auth.subtitle": "Sign in to begin your journey.", "auth.signin": "Sign In", "auth.signup": "Sign Up", "auth.google": "Sign in with Google", "header.logout": "Logout", "main.title": "Ask the Universe", "main.subtitle": "Example: \"The planet Mars\" or \"Eiffel Tower\"", "main.generate": "Generate", "tabs.info": "Information", "tabs.creative": "Creative Spark", "tabs.images": "Images", "tabs.3d": "3D View", "tabs.map": "Map", "tabs.tools": "Tools", "tabs.history": "History", "tabs.profile": "Profile", "tools.title": "Export Content", "tools.subtitle": "Download the generated information and creative spark as a text file.", "tools.download": "Download Results", "info.updated": "Updated" },
+            es: { "languageName": "Spanish", "auth.subtitle": "Inicia sesión para comenzar tu viaje.", "auth.signin": "Iniciar Sesión", "auth.signup": "Registrarse", "auth.google": "Iniciar sesión con Google", "header.logout": "Cerrar Sesión", "main.title": "Pregúntale al Universo", "main.subtitle": "Ejemplo: \"El planeta Marte\" o \"Torre Eiffel\"", "main.generate": "Generar", "tabs.info": "Información", "tabs.creative": "Chispa Creativa", "tabs.images": "Imágenes", "tabs.3d": "Vista 3D", "tabs.map": "Mapa", "tabs.tools": "Herramientas", "tabs.history": "Historial", "tabs.profile": "Perfil", "tools.title": "Exportar Contenido", "tools.subtitle": "Descarga la información generada y la chispa creativa como un archivo de texto.", "tools.download": "Descargar Resultados", "info.updated": "Actualizado" },
+            hi: { "languageName": "Hindi", "auth.subtitle": "अपनी यात्रा शुरू करने के लिए साइन इन करें।", "auth.signin": "साइन इन करें", "auth.signup": "साइन अप करें", "auth.google": "Google से साइन इन करें", "header.logout": "लॉग आउट", "main.title": "ब्रह्मांड से पूछें", "main.subtitle": "उदाहरण: \"मंगल ग्रह\" या \"एफिल टॉवर\"", "main.generate": "उत्पन्न करें", "tabs.info": "जानकारी", "tabs.creative": "रचनात्मक चिंगारी", "tabs.images": " छवियाँ", "tabs.3d": "3D व्यू", "tabs.map": "नक्शा", "tabs.tools": "उपकरण", "tabs.history": "इतिहास", "tabs.profile": "प्रोफ़ाइल", "tools.title": "सामग्री निर्यात करें", "tools.subtitle": "उत्पन्न जानकारी और रचनात्मक चिंगारी को एक टेक्स्ट फ़ाइल के रूप में डाउनलोड करें।", "tools.download": "परिणाम डाउनलोड करें", "info.updated": "अद्यतन" }
+        };
+
+        async function translateUI(lang) {
+            currentLang = lang;
+            document.querySelectorAll('[data-translate]').forEach(el => {
+                const key = el.getAttribute('data-translate');
+                if (translations[lang] && translations[lang][key]) {
+                    el.textContent = translations[lang][key];
+                }
+            });
+            
+            if (generatedContent.info) {
+                setLoadingState(true);
+                try {
+                    let displayInfo = generatedContent.info;
+                    let displayCreative = generatedContent.creative;
+                    if (lang !== 'en') {
+                        [displayInfo, displayCreative] = await Promise.all([
+                            callGeminiAPI(`Translate the following text to ${translations[lang]['languageName']}:\n\n${generatedContent.info}`),
+                            callGeminiAPI(`Translate the following text to ${translations[lang]['languageName']}:\n\n${generatedContent.creative}`)
+                        ]);
+                    }
+                    populateTextContent(displayInfo, displayCreative);
+                } catch (error) {
+                    showError("Translation failed.");
+                } finally {
+                    setLoadingState(false);
+                }
+            }
+        }
+
+        function setLoadingState(isLoading) {
+            generateBtn.disabled = isLoading;
+            loader.classList.toggle('hidden', !isLoading);
+            if(isLoading) resultsContainer.classList.add('hidden');
+            errorMessage.classList.add('hidden');
+        }
+
+        function showResults() {
+            resultsContainer.classList.remove('hidden');
+            actionBar.classList.remove('hidden');
+            switchTab('info');
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.classList.remove('hidden');
+        }
+
+        async function callGeminiAPI(prompt, useSearch = false) {
+            const apiKey = "";
+            const MODEL_NAME = 'gemini-2.5-flash-preview-05-20';
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${MODEL_NAME}:generateContent?key=${apiKey}`;
+            const payload = { contents: [{ role: "user", parts: [{ text: prompt }] }] };
+            if (useSearch) {
+                payload.tools = [{ "google_search": {} }];
+            }
+            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (!response.ok) {
+                console.error("API Response Error:", await response.text());
+                throw new Error("API request failed");
+            }
+            const result = await response.json();
+            if (result.candidates && result.candidates[0].content.parts[0].text) {
+                 return result.candidates[0].content.parts[0].text;
+            }
+            throw new Error("Unexpected API response format");
+        }
+        
+        async function callTextToSpeechAPI(text) {
+            const apiKey = "";
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: text }] }],
+                generationConfig: { responseModalities: ["AUDIO"] },
+                model: "gemini-2.5-flash-preview-tts"
+            };
+            const response = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+            if (!response.ok) throw new Error("TTS API request failed");
+            const result = await response.json();
+            const audioData = result.candidates[0].content.parts[0].inlineData.data;
+            const mimeType = result.candidates[0].content.parts[0].inlineData.mimeType;
+            const sampleRate = parseInt(mimeType.match(/rate=(\d+)/)[1], 10);
+            const pcmData = base64ToArrayBuffer(audioData);
+            const pcm16 = new Int16Array(pcmData);
+            const wavBlob = pcmToWav(pcm16, sampleRate);
+            return URL.createObjectURL(wavBlob);
+        }
+
+        function base64ToArrayBuffer(base64) {
+            const binaryString = window.atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        function pcmToWav(pcmData, sampleRate) {
+            const numChannels = 1;
+            const bitsPerSample = 16;
+            const blockAlign = (numChannels * bitsPerSample) / 8;
+            const byteRate = sampleRate * blockAlign;
+            const dataSize = pcmData.length * (bitsPerSample / 8);
+            const buffer = new ArrayBuffer(44 + dataSize);
+            const view = new DataView(buffer);
+
+            function writeString(view, offset, string) {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            }
+
+            writeString(view, 0, 'RIFF');
+            view.setUint32(4, 36 + dataSize, true);
+            writeString(view, 8, 'WAVE');
+            writeString(view, 12, 'fmt ');
+            view.setUint32(16, 16, true);
+            view.setUint16(20, 1, true);
+            view.setUint16(22, numChannels, true);
+            view.setUint32(24, sampleRate, true);
+            view.setUint32(28, byteRate, true);
+            view.setUint16(32, blockAlign, true);
+            view.setUint16(34, bitsPerSample, true);
+            writeString(view, 36, 'data');
+            view.setUint32(40, dataSize, true);
+
+            for (let i = 0; i < pcmData.length; i++) {
+                view.setInt16(44 + i * 2, pcmData[i], true);
+            }
+
+            return new Blob([view], { type: 'audio/wav' });
+        }
+        
+        function simpleMarkdownToHtml(text) {
+            if (!text) return '<p>No content available.</p>';
+            return text.replace(/\*\*(.*)\*\*/gim, '<strong>$1</strong>').replace(/\n/g, '<br>');
+        }
+
+        function listenToHistory(userId) {
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            if (historyUnsubscribe) historyUnsubscribe();
+            const q = query(collection(db, `artifacts/${appId}/users/${userId}/searchHistory`), orderBy('timestamp', 'desc'));
+            historyUnsubscribe = onSnapshot(q, (querySnapshot) => {
+                const history = [];
+                querySnapshot.forEach((doc) => {
+                    history.push({ id: doc.id, ...doc.data() });
+                });
+                searchCount = history.length;
+                renderHistory(history);
+            });
+        }
+        
+        function listenToFavorites(userId) {
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            if (favoritesUnsubscribe) favoritesUnsubscribe();
+            const q = query(collection(db, `artifacts/${appId}/users/${userId}/favorites`), orderBy('timestamp', 'desc'));
+            favoritesUnsubscribe = onSnapshot(q, (querySnapshot) => {
+                const favorites = [];
+                querySnapshot.forEach((doc) => {
+                    favorites.push({ id: doc.id, ...doc.data() });
+                });
+                renderFavorites(favorites);
+            });
+        }
+
+        function renderHistory(history) {
+            panes.history.innerHTML = '';
+            if (history.length === 0) {
+                panes.history.innerHTML = `<p class="text-slate-400">Your search history will appear here.</p>`;
+                return;
+            }
+            const list = document.createElement('ul');
+            history.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'p-2 rounded-md list-item';
+                li.textContent = item.query;
+                li.onclick = () => handleGeneration(item.query);
+                list.appendChild(li);
+            });
+            panes.history.appendChild(list);
+        }
+        
+        function renderFavorites(favorites) {
+            const container = panes.profile.querySelector('#favorites-list');
+            if (!container) return;
+            container.innerHTML = '';
+             if (favorites.length === 0) {
+                container.innerHTML = `<p class="text-slate-400">Your saved favorites will appear here.</p>`;
+                return;
+            }
+            const list = document.createElement('ul');
+            favorites.forEach(item => {
+                const li = document.createElement('li');
+                li.className = 'p-2 rounded-md list-item';
+                li.textContent = item.query;
+                li.onclick = () => {
+                    generatedContent = { info: item.info, creative: item.creative };
+                    populateTextContent(item.info, item.creative);
+                    showResults();
+                };
+                list.appendChild(li);
+            });
+            container.appendChild(list);
+        }
+        
+        function renderProfile() {
+            const user = auth.currentUser;
+            if (user) {
+                panes.profile.innerHTML = `
+                    <h3 class="text-xl font-bold text-white mb-2">User Profile</h3>
+                    <p class="text-slate-400"><strong>Email:</strong> ${user.email}</p>
+                    <p class="text-slate-400"><strong>Total Searches:</strong> ${searchCount}</p>
+                    <div class="mt-6">
+                        <h4 class="text-lg font-bold text-white mb-2">My Favorites</h4>
+                        <div id="favorites-list"></div>
+                    </div>
+                `;
+                listenToFavorites(user.uid);
+            }
+        }
+
+        async function saveToHistory(queryText) {
+            if (auth.currentUser) {
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                await addDoc(collection(db, `artifacts/${appId}/users/${auth.currentUser.uid}/searchHistory`), {
+                    query: queryText,
+                    timestamp: serverTimestamp()
+                });
+            }
+        }
+        
+        async function saveToFavorites() {
+            if (auth.currentUser && currentQuery) {
+                favBtn.textContent = 'Saving...';
+                favBtn.disabled = true;
+                const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+                await addDoc(collection(db, `artifacts/${appId}/users/${auth.currentUser.uid}/favorites`), {
+                    query: currentQuery,
+                    info: generatedContent.info,
+                    creative: generatedContent.creative,
+                    timestamp: serverTimestamp()
+                });
+                favBtn.textContent = '⭐ Saved!';
+                setTimeout(() => {
+                    favBtn.textContent = '⭐ Save to Favorites';
+                    favBtn.disabled = false;
+                }, 2000);
+            }
+        }
+        
+        class ThreeJsApp {
+            constructor(container, query) { this.container = container; this.query = query; }
+            init() {
+                this.scene = new THREE.Scene();
+                this.camera = new THREE.PerspectiveCamera(75, this.container.clientWidth / this.container.clientHeight, 0.1, 1000);
+                this.camera.position.z = 3;
+                this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+                this.renderer.setSize(this.container.clientWidth, this.container.clientHeight);
+                this.container.appendChild(this.renderer.domElement);
+                this.scene.add(new THREE.AmbientLight(0xffffff, 0.5));
+                const pointLight = new THREE.PointLight(0xffffff, 1);
+                pointLight.position.set(5, 5, 5);
+                this.scene.add(pointLight);
+                const geometry = new THREE.SphereGeometry(1, 32, 32);
+                const material = new THREE.MeshStandardMaterial({ color: this.getColorFromQuery() });
+                this.mesh = new THREE.Mesh(geometry, material);
+                this.scene.add(this.mesh);
+                this.addMouseControls();
+                this.animate();
+            }
+            getColorFromQuery() {
+                let hash = 0;
+                for (let i = 0; i < this.query.length; i++) { hash = this.query.charCodeAt(i) + ((hash << 5) - hash); }
+                return (hash & 0x00FFFFFF);
+            }
+            addMouseControls() {
+                let isDragging = false, prev = { x: 0, y: 0 };
+                this.renderer.domElement.onmousedown = () => isDragging = true;
+                this.renderer.domElement.onmouseup = () => isDragging = false;
+                this.renderer.domElement.onmousemove = (e) => {
+                    if (!isDragging) return;
+                    this.mesh.rotation.y += (e.offsetX - prev.x) * 0.01;
+                    this.mesh.rotation.x += (e.offsetY - prev.y) * 0.01;
+                    prev = { x: e.offsetX, y: e.offsetY };
+                };
+            }
+            animate() {
+                this.animationFrameId = requestAnimationFrame(() => this.animate());
+                this.mesh.rotation.y += 0.001;
+                this.renderer.render(this.scene, this.camera);
+            }
+            cleanup() {
+                cancelAnimationFrame(this.animationFrameId);
+                if(this.renderer) this.container.removeChild(this.renderer.domElement);
+            }
+        }
+        
+        (async function() {
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                try { await signInWithCustomToken(auth, __initial_auth_token); } 
+                catch (error) { console.error("Custom token sign-in failed.", error); }
+            }
+        })();
+    </script>
+</body>
+</html>
